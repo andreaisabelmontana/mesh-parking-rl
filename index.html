@@ -3,60 +3,74 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Mesh Parking RL — Built From Scratch</title>
-<meta name="description" content="An original from-scratch build: a reinforcement-learning agent that learns to park, on a mesh-discretised representation of the lot — plus the write-up that explains why it works." />
+<title>Mesh Parking RL — a Q-learning agent that learns to park</title>
+<meta name="description" content="A tabular Q-learning agent that learns to park a car on a mesh-discretised parking lot. Pure Python (numpy + matplotlib), env built from scratch. 100% success vs 3% random. Includes the write-up explaining why the mesh discretisation and reward shaping make it learnable." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <style>
   :root{
     --accent:#2563eb; --accent-soft:#e8f0fe; --ink:#10182b; --muted:#4f5a72;
-    --line:#dbe4f3; --bg:#f8faff; --card:#ffffff;
+    --line:#dbe4f3; --bg:#f8faff; --card:#ffffff; --green:#16a34a; --red:#dc2626;
     --serif:'Fraunces',Georgia,serif; --sans:'Inter',system-ui,sans-serif; --mono:'JetBrains Mono',monospace;
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65;-webkit-font-smoothing:antialiased}
-  .wrap{max-width:860px;margin:0 auto;padding:0 28px}
+  .wrap{max-width:880px;margin:0 auto;padding:0 28px}
   a{color:var(--accent);text-decoration:none}
   a:hover{text-decoration:underline}
   code{font-family:var(--mono);font-size:.86em;background:var(--accent-soft);padding:.1em .4em;border-radius:4px;color:#1d4ed8}
   h1,h2,h3{font-family:var(--serif);font-weight:500;line-height:1.15;letter-spacing:-.01em}
-  header.hero{padding:88px 0 56px;border-bottom:1px solid var(--line)}
+  header.hero{padding:84px 0 52px;border-bottom:1px solid var(--line)}
   .eyebrow{font-family:var(--mono);font-size:.74rem;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin:0 0 22px}
-  h1{font-size:clamp(2.6rem,6vw,4.1rem);margin:0 0 18px}
-  .lede{font-size:1.22rem;color:var(--muted);max-width:62ch;margin:0 0 28px}
+  h1{font-size:clamp(2.5rem,6vw,4rem);margin:0 0 18px}
+  .lede{font-size:1.2rem;color:var(--muted);max-width:64ch;margin:0 0 28px}
   .meta{display:flex;flex-wrap:wrap;gap:10px;font-size:.82rem}
   .chip{font-family:var(--mono);font-size:.72rem;letter-spacing:.04em;border:1px solid var(--line);border-radius:999px;padding:5px 12px;color:var(--muted);background:var(--card)}
-  section{padding:54px 0;border-bottom:1px solid var(--line)}
+  section{padding:52px 0;border-bottom:1px solid var(--line)}
   .kicker{font-family:var(--mono);font-size:.74rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 14px}
   h2{font-size:clamp(1.7rem,3.4vw,2.3rem);margin:0 0 20px}
   h3{font-size:1.2rem;margin:0 0 6px}
   p{margin:0 0 18px;max-width:68ch}
   .muted{color:var(--muted)}
+  /* metrics */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-top:8px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .stat .n{font-family:var(--serif);font-size:2.4rem;color:var(--accent);line-height:1}
+  .stat .l{color:var(--muted);font-size:.9rem;margin-top:6px}
+  /* replay */
+  .replay{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;margin-top:8px;display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+  #lot{background:#fbfcff;border:1px solid var(--line);border-radius:10px;touch-action:none}
+  .panel{flex:1;min-width:230px}
+  .panel .status{font-family:var(--mono);font-size:.82rem;color:var(--muted);margin:0 0 14px;min-height:2.4em}
+  .panel .status b{color:var(--ink)}
+  .btns{display:flex;gap:10px;flex-wrap:wrap}
+  button{font-family:var(--sans);font-weight:600;font-size:.9rem;border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;cursor:pointer}
+  button.ghost{background:var(--card);color:var(--accent)}
+  button:hover{opacity:.9}
+  .legend{font-family:var(--mono);font-size:.74rem;color:var(--muted);margin-top:16px;display:flex;flex-direction:column;gap:5px}
+  .legend span{display:inline-flex;align-items:center;gap:8px}
+  .sw{width:14px;height:14px;border-radius:3px;display:inline-block;border:1px solid var(--line)}
   .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:8px}
   .tool{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
   .tool .t{font-family:var(--mono);font-size:.78rem;color:var(--accent);letter-spacing:.04em;margin-bottom:8px}
   .tool h3{font-size:1.05rem;font-family:var(--sans);font-weight:600;margin-bottom:6px}
   .tool p{font-size:.92rem;color:var(--muted);margin:0}
-  ol.flow{counter-reset:s;list-style:none;padding:0;margin:24px 0 0}
-  ol.flow li{position:relative;padding:18px 0 18px 56px;border-top:1px solid var(--line)}
-  ol.flow li:before{counter-increment:s;content:counter(s,decimal-leading-zero);position:absolute;left:0;top:18px;font-family:var(--mono);font-size:.8rem;color:var(--accent);border:1px solid var(--line);border-radius:8px;width:38px;height:38px;display:grid;place-items:center;background:var(--card)}
-  ol.flow li h3{font-family:var(--sans);font-size:1.02rem;font-weight:600;margin:0 0 4px}
-  ol.flow li p{margin:0;font-size:.93rem;color:var(--muted)}
-  .callout{background:var(--accent-soft);border:1px solid #c2d6f7;border-radius:14px;padding:24px 26px;margin-top:8px}
-  .callout p:last-child{margin:0}
-  ul.learn{list-style:none;padding:0;margin:8px 0 0}
-  ul.learn li{padding:14px 0 14px 30px;border-top:1px solid var(--line);position:relative;color:var(--muted);max-width:68ch}
-  ul.learn li:before{content:"→";position:absolute;left:0;color:var(--accent);font-family:var(--mono)}
-  ul.learn li b{color:var(--ink);font-weight:600}
-  .price{display:flex;align-items:baseline;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 26px;margin-top:8px}
-  .price .n{font-family:var(--serif);font-size:2.6rem;color:var(--accent);line-height:1}
-  .price .l{color:var(--muted);font-size:.95rem}
-  footer{padding:48px 0 80px}
+  pre.reward{font-family:var(--mono);font-size:.82rem;background:var(--ink);color:#e8f0fe;border-radius:12px;padding:18px 20px;overflow:auto;line-height:1.7;margin-top:6px}
+  pre.reward .pos{color:#86efac}.pre .neg{color:#fca5a5}
+  ul.why{list-style:none;padding:0;margin:8px 0 0}
+  ul.why li{padding:16px 0 16px 30px;border-top:1px solid var(--line);position:relative;color:var(--muted);max-width:70ch}
+  ul.why li:before{content:"→";position:absolute;left:0;color:var(--accent);font-family:var(--mono)}
+  ul.why li b{color:var(--ink);font-weight:600}
+  footer{padding:46px 0 80px}
   .credit{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:26px}
   .credit .k{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
   footer .fine{font-size:.8rem;color:var(--muted);margin-top:22px;text-align:center}
+  table.runs{width:100%;border-collapse:collapse;margin-top:8px;font-size:.95rem}
+  table.runs th,table.runs td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
+  table.runs th{font-family:var(--mono);font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  table.runs td.big{font-family:var(--serif);font-size:1.3rem;color:var(--accent)}
 </style>
 </head>
 <body>
@@ -64,69 +78,104 @@
   <div class="wrap">
     <p class="eyebrow">From-Scratch Build · Reinforcement Learning</p>
     <h1>Mesh Parking RL</h1>
-    <p class="lede">Parking is a deceptively hard control problem: a car can't slide sideways, the goal pose is tight, and one wrong move means a collision. This build teaches an agent to park by laying a <i>mesh</i> over the lot — discretising space into cells the agent can reason about — and learning a policy on it. It comes with a paper-style write-up, because the explanation is half the work.</p>
+    <p class="lede">A tabular Q-learning agent that learns to park a car on a <i>mesh-discretised</i> parking lot. The lot is laid out as a grid of cells; the car has a position and a heading; and a non-holonomic car (it can't slide sideways) has to drive in, turn, and ease into a one-cell slot facing the right way. Pure Python — <code>numpy</code> + <code>matplotlib</code>, environment built from scratch, no gym.</p>
     <div class="meta">
-      <span class="chip">Python</span><span class="chip">Reinforcement learning</span><span class="chip">Spatial mesh</span>
-      <span class="chip">Path planning</span><span class="chip">Reward shaping</span><span class="chip">Write-up</span>
+      <span class="chip">Python</span><span class="chip">Q-learning</span><span class="chip">Mesh discretisation</span>
+      <span class="chip">Reward shaping</span><span class="chip">numpy</span><span class="chip">28 tests</span>
     </div>
   </div>
 </header>
 
 <section>
   <div class="wrap">
-    <p class="kicker">What it is</p>
-    <h2>Learning to park on a grid of cells</h2>
-    <p>A parking lot is continuous, but an agent learns far more easily over something countable. The core idea here is the mesh: overlay the lot with a grid of cells, and the messy continuous problem — where exactly is the car, where exactly is the space — becomes a tractable one the agent can plan and learn over. The mesh is the bridge between physical geometry and a learnable state space.</p>
-    <p>On top of that representation, an RL agent explores manoeuvres, gets rewarded for edging towards a clean parked pose and penalised for clipping obstacles, and gradually converges on a policy that parks reliably. The accompanying write-up lays out the method and results the way a short paper would.</p>
-    <div class="price">
-      <div class="n">grid</div>
-      <div class="l">the single design choice — meshing continuous space into discrete cells — that turns an intractable problem into a learnable one.</div>
+    <p class="kicker">Real results · python train.py, seed 0</p>
+    <h2>It parks every time — random almost never does</h2>
+    <div class="stats">
+      <div class="stat"><div class="n">100%</div><div class="l">trained success rate (300 greedy episodes)</div></div>
+      <div class="stat"><div class="n">3%</div><div class="l">random-policy success rate, same lot</div></div>
+      <div class="stat"><div class="n">12</div><div class="l">steps to park (trained agent)</div></div>
+      <div class="stat"><div class="n">256</div><div class="l">discrete mesh states (8×8 × 4 headings)</div></div>
+    </div>
+    <p class="muted" style="margin-top:22px">The agent converges to a reliable park within ~600 episodes; the full run is 6000. Every number here comes from a real training run — see <code>results.json</code> in the repo.</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="kicker">Watch it park</p>
+    <h2>The learned manoeuvre, replayed</h2>
+    <p>This is the exact greedy action sequence the trained agent produced — driving East to column 4, turning South, then easing straight down the corridor between the parked cars into the slot, arriving South-facing. Nothing here is scripted; it's the policy's own output replayed on a canvas.</p>
+    <div class="replay">
+      <canvas id="lot" width="320" height="320"></canvas>
+      <div class="panel">
+        <p class="status" id="status">Press play to watch the trained policy park.</p>
+        <div class="btns">
+          <button id="play">▶ Play</button>
+          <button id="step" class="ghost">Step</button>
+          <button id="reset" class="ghost">Reset</button>
+        </div>
+        <div class="legend">
+          <span><i class="sw" style="background:#16a34a"></i> start pose</span>
+          <span><i class="sw" style="background:#e8f0fe;border-color:#2563eb"></i> goal slot (must face South)</span>
+          <span><i class="sw" style="background:#9aa6bf"></i> parked cars / pillars</span>
+          <span><i class="sw" style="background:#2563eb"></i> the car (arrow = heading)</span>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="kicker">The stack</p>
-    <h2>From lot geometry to parked car</h2>
-    <p class="muted">Representation first, then the agent, then the explanation.</p>
+    <p class="kicker">The environment</p>
+    <h2>A car on a mesh of cells</h2>
+    <p>The lot is an <code>8×8</code> grid. The state is <code>(col, row, heading)</code> — a cell plus one of four compass headings — flattened to a single integer for the Q-table. The car is non-holonomic, so it has four actions:</p>
     <div class="grid">
-      <div class="tool"><div class="t">representation</div><h3>Spatial mesh</h3><p>Discretise the lot into a grid of cells, each carrying occupancy and cost — the foundation everything else stands on.</p></div>
-      <div class="tool"><div class="t">dynamics</div><h3>Car model</h3><p>Non-holonomic motion: the car can drive and steer but not slide sideways, which is what makes parking hard.</p></div>
-      <div class="tool"><div class="t">agent</div><h3>RL policy</h3><p>Learn, by trial and error over the mesh, the sequence of moves that lands the car in the goal pose.</p></div>
-      <div class="tool"><div class="t">signal</div><h3>Reward shaping</h3><p>Reward progress towards the slot and orientation; penalise collisions and dithering, so good behaviour is learnable.</p></div>
-      <div class="tool"><div class="t">baseline</div><h3>Planning comparison</h3><p>Hold the learned policy up against a classical grid path-planner to see what RL adds — and costs.</p></div>
-      <div class="tool"><div class="t">communication</div><h3>Paper write-up</h3><p>Method, experiments and results documented like a short paper — the deliverable that makes the work legible.</p></div>
+      <div class="tool"><div class="t">action</div><h3>forward / reverse</h3><p>Move one cell along (or opposite) the current heading. Driving into a wall, obstacle, or the boundary bounces back and is penalised.</p></div>
+      <div class="tool"><div class="t">action</div><h3>steer-left / -right</h3><p>Rotate the heading 90° in place. Turning never collides — it's how the car re-aligns before a tight approach.</p></div>
+      <div class="tool"><div class="t">goal</div><h3>cell + heading</h3><p>Parked means the goal cell <em>and</em> the goal heading. Landing on the slot pointing the wrong way doesn't count.</p></div>
+      <div class="tool"><div class="t">agent</div><h3>tabular Q-learning</h3><p>Off-policy, α=0.2, γ=0.95, ε-greedy decaying 1.0→0.02. Just 256 states, so the value of every state can be learned exactly.</p></div>
     </div>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="kicker">Architecture</p>
-    <h2>How a parking policy is learned</h2>
-    <p>From an empty lot to a trained agent, the build follows a clear sequence:</p>
-    <ol class="flow">
-      <li><h3>Mesh the lot</h3><p>Lay a grid over the space and mark which cells are free, blocked, or the goal.</p></li>
-      <li><h3>Place the car</h3><p>Give the agent a start pose and the car's motion constraints.</p></li>
-      <li><h3>Explore</h3><p>Let the agent try manoeuvres across the mesh, collecting reward and collisions.</p></li>
-      <li><h3>Shape &amp; learn</h3><p>Update the policy from the shaped reward so successful approaches get reinforced.</p></li>
-      <li><h3>Document</h3><p>Run the trained agent, measure success rate, and write up the method and findings.</p></li>
-    </ol>
+    <p class="kicker">Reward shaping</p>
+    <h2>The signal that makes it learnable</h2>
+    <pre class="reward"><span class="pos">+100</span>   reach the goal cell with the correct heading   → episode ends
+ <span style="color:#fca5a5">−20</span>   collision (wall / obstacle / boundary)         → car bounces back
+  <span style="color:#fca5a5">−1</span>   every step                                     → favour short manoeuvres
+   ±   potential-based shaping  F = φ(s′) − φ(s)    → a gradient toward the goal pose</pre>
+    <p style="margin-top:18px">The potential <code>φ</code> rewards getting closer to the goal cell (negative Manhattan distance) plus a small heading-alignment bonus. Because it's a <b>potential difference</b> (Ng, Harada &amp; Russell, 1999) it speeds up learning <em>without changing which policy is optimal</em> — it only re-routes credit, never the destination.</p>
   </div>
 </section>
 
 <section>
   <div class="wrap">
-    <p class="kicker">Reflection</p>
-    <h2>What rebuilding it taught me</h2>
-    <ul class="learn">
-      <li><b>Representation is the real decision.</b> Choosing the mesh resolution shapes everything downstream — too coarse and you can't park, too fine and learning crawls.</li>
-      <li><b>Non-holonomic constraints bite.</b> A car that can't move sideways turns "just go to the slot" into a genuine sequencing puzzle.</li>
-      <li><b>Reward shaping is steering.</b> The agent does exactly what the reward rewards; getting parking behaviour means designing the signal carefully.</li>
-      <li><b>RL and planning are complementary.</b> A classical planner gives a baseline; RL earns its keep where the dynamics get awkward.</li>
-      <li><b>Writing it up clarifies it.</b> Producing the paper-style explanation forced me to actually justify every choice, not just make it work.</li>
+    <p class="kicker">The WHY write-up</p>
+    <h2>Why the mesh + shaping make it work</h2>
+    <ul class="why">
+      <li><b>The mesh turns a continuous problem into a tabular one.</b> Real parking is continuous position + heading + geometry. Snapping the car to a grid of cells and four headings collapses it to <b>256 discrete states</b> — small enough for Q-learning to visit each many times and learn an exact value.</li>
+      <li><b>Discretising heading, not just position, makes alignment learnable.</b> With only <code>(col, row)</code>, the agent couldn't tell "on the slot, wrong way" from "parked." Folding heading into the state and the goal test is what lets it plan around the non-holonomic constraint instead of ignoring it.</li>
+      <li><b>Shaping fixes the sparse reward without lying.</b> With only the <code>+100</code> at the goal, random exploration finds the slot just 3% of the time — nothing to bootstrap from. Potential-based shaping hands out a gradient from episode one, and because it's a potential difference it can't invent a shortcut that isn't there. Success climbs ~10%→100% inside 600 episodes.</li>
+      <li><b>Collision penalties encode the walls into the values.</b> Illegal moves aren't forbidden — the agent tries, bounces back, pays −20, and Q-learning learns to avoid those state-actions itself. The obstacle layout is absorbed into the value function, not hard-coded into the policy.</li>
     </ul>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <p class="kicker">Verification</p>
+    <h2>Tested, not asserted</h2>
+    <table class="runs">
+      <tr><th>what</th><th>result</th></tr>
+      <tr><td>Env mechanics (collisions, alignment goal, boundary, reward signs, kinematics)</td><td class="big">✓</td></tr>
+      <tr><td>State discretisation is consistent &amp; bijective</td><td class="big">✓</td></tr>
+      <tr><td>Trained agent beats random by a wide margin (≥95% vs ≤30%)</td><td class="big">✓</td></tr>
+      <tr><td>Training converges &amp; greedy rollout reaches the slot</td><td class="big">✓</td></tr>
+      <tr><td><code>python -m pytest -q</code></td><td class="big">28 passed</td></tr>
+    </table>
   </div>
 </section>
 
@@ -134,10 +183,92 @@
   <div class="wrap">
     <div class="credit">
       <div class="k">About this build</div>
-      <p style="margin:0">An original, from-scratch build by <b>Andrea</b> — written to learn reinforcement learning for spatial control: mesh-based state representation, non-holonomic dynamics, reward shaping, and communicating results in a paper-style write-up. Plain HTML/CSS, deployed on GitHub Pages.</p>
+      <p style="margin:0">An original, from-scratch build by <b>Andrea</b> — the parking environment, the tabular Q-learning agent, the reward shaping, the tests, and this page are all my own code and writing. Built to learn reinforcement learning for spatial control. Run it: <code>pip install -r requirements.txt &amp;&amp; python train.py</code>.</p>
     </div>
     <p class="fine">Built from scratch by Andrea · one of an ongoing series of learning builds.</p>
   </div>
 </footer>
+
+<script>
+// ---- the real learned greedy action sequence (from results.json) ----
+// actions: 0 forward, 1 reverse, 2 steer-left, 3 steer-right
+const ACTIONS = ["forward","forward","forward","forward","steer-right",
+                 "forward","forward","forward","forward","forward","forward","forward"];
+const W = 8, H = 8;
+const START = {c:0, r:0, h:1};      // facing East
+const GOAL  = {c:4, r:7, h:2};      // facing South
+const OBST  = [[3,7],[5,7],[3,6],[5,6],[2,3],[5,3],[6,3]];
+const HVEC  = {0:[0,-1],1:[1,0],2:[0,1],3:[-1,0]};   // N,E,S,W
+const HNAME = {0:"North",1:"East",2:"South",3:"West"};
+
+const cv = document.getElementById("lot");
+const ctx = cv.getContext("2d");
+const cell = cv.width / W;
+let car, idx, timer = null;
+
+function applyAction(s, a){
+  const t = {c:s.c, r:s.r, h:s.h};
+  if(a === "forward"){ const [dc,dr]=HVEC[s.h]; t.c+=dc; t.r+=dr; }
+  else if(a === "reverse"){ const [dc,dr]=HVEC[s.h]; t.c-=dc; t.r-=dr; }
+  else if(a === "steer-left"){ t.h=(s.h+3)%4; }
+  else if(a === "steer-right"){ t.h=(s.h+1)%4; }
+  return t;
+}
+function draw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // grid
+  ctx.strokeStyle = "#dbe4f3"; ctx.lineWidth = 1;
+  for(let i=0;i<=W;i++){ ctx.beginPath(); ctx.moveTo(i*cell,0); ctx.lineTo(i*cell,cv.height); ctx.stroke(); }
+  for(let j=0;j<=H;j++){ ctx.beginPath(); ctx.moveTo(0,j*cell); ctx.lineTo(cv.width,j*cell); ctx.stroke(); }
+  // obstacles
+  ctx.fillStyle = "#9aa6bf";
+  OBST.forEach(([c,r]) => ctx.fillRect(c*cell+1, r*cell+1, cell-2, cell-2));
+  // goal
+  ctx.fillStyle = "#e8f0fe"; ctx.strokeStyle = "#2563eb"; ctx.lineWidth = 2;
+  ctx.fillRect(GOAL.c*cell+1, GOAL.r*cell+1, cell-2, cell-2);
+  ctx.strokeRect(GOAL.c*cell+1, GOAL.r*cell+1, cell-2, cell-2);
+  // start marker
+  ctx.fillStyle = "#16a34a";
+  ctx.fillRect(START.c*cell+cell*0.32, START.r*cell+cell*0.32, cell*0.36, cell*0.36);
+  // car
+  const cx = car.c*cell + cell/2, cy = car.r*cell + cell/2;
+  const parked = (car.c===GOAL.c && car.r===GOAL.r && car.h===GOAL.h);
+  ctx.fillStyle = parked ? "#dc2626" : "#2563eb";
+  ctx.beginPath(); ctx.arc(cx, cy, cell*0.28, 0, Math.PI*2); ctx.fill();
+  // heading arrow
+  const [dc,dr] = HVEC[car.h];
+  ctx.strokeStyle = "#10182b"; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+dc*cell*0.4, cy+dr*cell*0.4); ctx.stroke();
+  ctx.beginPath();
+  const ax = cx+dc*cell*0.4, ay = cy+dr*cell*0.4;
+  ctx.arc(ax, ay, cell*0.07, 0, Math.PI*2); ctx.fillStyle = "#10182b"; ctx.fill();
+}
+function setStatus(){
+  const s = document.getElementById("status");
+  const parked = (car.c===GOAL.c && car.r===GOAL.r && car.h===GOAL.h);
+  if(idx === 0){ s.innerHTML = `Step <b>0</b> — start at (0,0) facing <b>${HNAME[car.h]}</b>.`; }
+  else if(parked){ s.innerHTML = `Step <b>${idx}</b> — <b>parked.</b> On the slot facing <b>${HNAME[car.h]}</b> ✓`; }
+  else { s.innerHTML = `Step <b>${idx}</b> — <b>${ACTIONS[idx-1]}</b> → (${car.c},${car.r}) facing <b>${HNAME[car.h]}</b>.`; }
+}
+function reset(){
+  if(timer){ clearInterval(timer); timer=null; document.getElementById("play").textContent="▶ Play"; }
+  car = {...START}; idx = 0; draw(); setStatus();
+}
+function step(){
+  if(idx >= ACTIONS.length) return false;
+  car = applyAction(car, ACTIONS[idx]); idx++; draw(); setStatus();
+  return idx < ACTIONS.length;
+}
+document.getElementById("step").onclick = step;
+document.getElementById("reset").onclick = reset;
+document.getElementById("play").onclick = function(){
+  if(timer){ clearInterval(timer); timer=null; this.textContent="▶ Play"; return; }
+  if(idx >= ACTIONS.length) reset();
+  this.textContent="❚❚ Pause";
+  const btn = this;
+  timer = setInterval(() => { if(!step()){ clearInterval(timer); timer=null; btn.textContent="▶ Play"; } }, 480);
+};
+reset();
+</script>
 </body>
 </html>

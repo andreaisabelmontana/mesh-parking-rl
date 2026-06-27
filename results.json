@@ -1,0 +1,33 @@
+{
+  "episodes": 6000,
+  "seed": 0,
+  "eval_episodes": 300,
+  "n_states": 256,
+  "trained_agent": {
+    "success_rate": 1.0,
+    "mean_steps_on_success": 12.0
+  },
+  "random_policy": {
+    "success_rate": 0.03,
+    "mean_steps_on_success": 92.56
+  },
+  "demo_rollout": {
+    "reached_goal": true,
+    "steps": 12,
+    "actions": [
+      "forward",
+      "forward",
+      "forward",
+      "forward",
+      "steer-right",
+      "forward",
+      "forward",
+      "forward",
+      "forward",
+      "forward",
+      "forward",
+      "forward"
+    ]
+  },
+  "final_train_success_rate_last_500": 1.0
+}
